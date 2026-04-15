@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # 20 Days of data is taken where the 20 days are randomly selected from 2020-2024
 
 # Load the historical wind data 
-df_wind = pd.read_csv("group_26_assignment_2_REM/Wind_Data_DK2_Renewablesninja.csv")
+df_wind = pd.read_csv("Wind_Data_DK2_Renewablesninja.csv")
 
 # Parse time column
 df_wind["time"] = pd.to_datetime(df_wind["time"])
