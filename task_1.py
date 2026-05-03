@@ -93,75 +93,114 @@ def task_1(scenarios):
 #Task1.2: Repeat Task 1.1 under the two-price scheme. Compare both offering strategies and profit
 #distributions, and explain key differences.
 #------------------------------------------
+# Helper Function
+def two_price_profit_expr(scenario, t, offer, excess, deficit):
+    p_da = scenario["price_DA"][t-1]
+    p_bal = scenario["price_balancing"][t-1]
+    si = scenario["imbalance"][t-1]  # 1 = system deficit, 0 = system surplus
+
+    if si == 1:
+        # System deficit:
+        # excess wind helps -> DA price
+        # deficit wind hurts -> balancing price
+        return p_da * offer + p_da * excess - p_bal * deficit
+
+    else:
+        # System surplus:
+        # excess wind hurts -> balancing price
+        # deficit wind helps -> DA price
+        return p_da * offer + p_bal * excess - p_da * deficit
+    
+
 def task_2(scenarios):
-    # Create a Gurobi model
     model = gp.Model("task_2_two_price")
 
-    # Define some indices
-    T = range(1, 25)  # Hours in the day (1-24)
-    W = range(len(scenarios))  # Scenario indices
+    T = range(1, 25)
+    W = range(len(scenarios))
 
-    # Decision variables for each hour
     offer = {}
     for t in T:
-        offer[t] = model.addVar(lb=0, ub=p_nom,
-                                vtype=GRB.CONTINUOUS,
-                                name=f"p_DA_{t}")
+        offer[t] = model.addVar(
+            lb=0, ub=p_nom,
+            vtype=GRB.CONTINUOUS,
+            name=f"p_DA_{t}"
+        )
 
-    # Auxiliary variables for excess and deficit (linearization)
     excess = {}
     deficit = {}
-    for w in W:
-        for t in T:
-            excess[w, t] = model.addVar(lb=0,ub=p_nom, vtype=GRB.CONTINUOUS,
-                                        name=f"excess_{w}_{t}")
-            deficit[w, t] = model.addVar(lb=0, ub=p_nom, vtype=GRB.CONTINUOUS,
-                                         name=f"deficit_{w}_{t}")
 
-    # Imbalance split: wind - offer = excess - deficit
     for w in W:
         for t in T:
+            excess[w, t] = model.addVar(
+                lb=0, ub=p_nom,
+                vtype=GRB.CONTINUOUS,
+                name=f"excess_{w}_{t}"
+            )
+
+            deficit[w, t] = model.addVar(
+                lb=0, ub=p_nom,
+                vtype=GRB.CONTINUOUS,
+                name=f"deficit_{w}_{t}"
+            )
+
             model.addConstr(
                 scenarios[w]["wind"][t - 1] - offer[t] == excess[w, t] - deficit[w, t],
                 name=f"imbalance_split_{w}_{t}"
             )
 
-    # Objective: maximize total profit across scenarios
     total_profit = gp.quicksum(
         gp.quicksum(
-            scenarios[w]["price_DA"][t - 1] * offer[t]
-            + 0.9 * scenarios[w]["price_DA"][t - 1] * excess[w, t]
-            - 1.2 * scenarios[w]["price_DA"][t - 1] * deficit[w, t]
+            two_price_profit_expr(
+                scenarios[w],
+                t,
+                offer[t],
+                excess[w, t],
+                deficit[w, t]
+            )
             for t in T
         )
         for w in W
     )
-    model.setObjective(total_profit, GRB.MAXIMIZE)
 
+    model.setObjective(total_profit, GRB.MAXIMIZE)
     model.optimize()
 
     optimal_offer = [offer[t].X for t in T]
-    expected_profit = model.objVal / len(scenarios)
+    expected_profit = model.ObjVal / len(scenarios)
 
-    # Profit per scenario
     scenario_profits = []
+
     for w in W:
         profit = 0
+
         for t in T:
-            p_da = scenarios[w]["price_DA"][t - 1]
             wind = scenarios[w]["wind"][t - 1]
             bid = optimal_offer[t - 1]
 
             excess_val = max(wind - bid, 0)
             deficit_val = max(bid - wind, 0)
 
-            profit += p_da * bid + 0.9 * p_da * excess_val - 1.2 * p_da * deficit_val
+            p_da = scenarios[w]["price_DA"][t - 1]
+            p_bal = scenarios[w]["price_balancing"][t - 1]
+            si = scenarios[w]["imbalance"][t - 1]
+
+            if si == 1:
+                # System deficit:
+                # excess wind helps -> DA price
+                # deficit wind hurts -> balancing price
+                profit += p_da * bid + p_da * excess_val - p_bal * deficit_val
+
+            else:
+                # System surplus:
+                # excess wind hurts -> balancing price
+                # deficit wind helps -> DA price
+                profit += p_da * bid + p_bal * excess_val - p_da * deficit_val
+
         scenario_profits.append(profit)
 
-    # Convert to DataFrames
     offer_df = pd.DataFrame({
         "hour": list(T),
-        "offer_MW": [optimal_offer[t - 1] for t in T]
+        "offer_MW": optimal_offer
     })
 
     profit_df = pd.DataFrame({
@@ -234,11 +273,13 @@ def task_3(scenarios):
                 deficit_val = max(bid - wind, 0)  # underproduction
 
                 # Profit calculation (same as in task_2)
-                profit += (
-                    p_da * bid
-                    + 0.9 * p_da * excess_val
-                    - 1.2 * p_da * deficit_val
-                )
+                p_bal = eval_scenarios[w]["price_balancing"][t - 1]
+                si = eval_scenarios[w]["imbalance"][t - 1]
+
+                if si == 1:
+                    profit += p_da * bid + p_da * excess_val - p_bal * deficit_val
+                else:
+                    profit += p_da * bid + p_bal * excess_val - p_da * deficit_val
 
             scenario_profits.append(profit)
 
@@ -401,8 +442,203 @@ def run_task_3():
 
     return cv_results_df, summary_df, offers_df
 
+
+## Task 1.4 ##
+
+# Helper function to get in-sample scenarios for a given fold
+def get_in_sample_scenarios(scenarios, n=200, seed=42):
+    rng = np.random.default_rng(seed)
+    indices = rng.choice(len(scenarios), size=n, replace=False)
+    return [scenarios[i] for i in indices]
+
+# Defining the function (default values imbedded in definition)
+def risk_averse_offering(scenarios, scheme="two_price", alpha=0.90, beta=0, seed = 42):
+    model = gp.Model(f"risk_averse_{scheme}")
+
+    # Use 200 in-sample scenarios to keep model size manageable
+    # Two different random seeds to get two different sets of in-sample scenarios
+    in_sample = get_in_sample_scenarios(scenarios, n=200, seed=seed)
+
+    T = range(1, 25)
+    W = range(len(in_sample))
+    pi = 1 / len(in_sample) # uniform probability for each scenario
+
+    offer = {
+        t: model.addVar(lb=0, ub=p_nom, vtype=GRB.CONTINUOUS, name=f"p_DA_{t}")
+        for t in T
+    }
+
+    profit = {
+        w: model.addVar(lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name=f"profit_{w}")
+        for w in W
+    }
+
+    eta = model.addVar(lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="eta")
+    zeta = {
+        w: model.addVar(lb=0, vtype=GRB.CONTINUOUS, name=f"zeta_{w}")
+        for w in W
+    }
+
+    if scheme == "two_price":
+        excess = {}
+        deficit = {}
+
+        for w in W:
+            profit_terms = []
+
+            for t in T:
+                excess[w, t] = model.addVar(lb=0, ub=p_nom, vtype=GRB.CONTINUOUS)
+                deficit[w, t] = model.addVar(lb=0, ub=p_nom, vtype=GRB.CONTINUOUS)
+
+                model.addConstr(
+                    in_sample[w]["wind"][t-1] - offer[t] == excess[w, t] - deficit[w, t]
+                )
+
+                profit_terms.append(
+                    two_price_profit_expr(
+                        in_sample[w], t, offer[t], excess[w, t], deficit[w, t]
+                    )
+                )
+
+            model.addConstr(profit[w] == gp.quicksum(profit_terms))
+
+    elif scheme == "one_price":
+        for w in W:
+            model.addConstr(
+                profit[w] == gp.quicksum(
+                    in_sample[w]["price_DA"][t-1] * offer[t]
+                    + in_sample[w]["price_balancing"][t-1]
+                    * (in_sample[w]["wind"][t-1] - offer[t])
+                    for t in T
+                )
+            )
+
+    else:
+        raise ValueError("scheme must be 'one_price' or 'two_price'")
+
+    expected_profit = gp.quicksum(pi * profit[w] for w in W)
+
+    # CVaR of profit, lower tail
+    for w in W:
+        model.addConstr(zeta[w] >= eta - profit[w])
+
+    cvar = eta - (1 / (1 - alpha)) * gp.quicksum(pi * zeta[w] for w in W)
+
+    model.setObjective(expected_profit + beta * cvar, GRB.MAXIMIZE)
+    model.optimize()
+
+    offer_df = pd.DataFrame({
+        "hour": list(T),
+        "offer_MW": [offer[t].X for t in T]
+    })
+
+    profit_values = np.array([profit[w].X for w in W])
+
+    return {
+        "scheme": scheme,
+        "beta": beta,
+        "expected_profit": np.mean(profit_values),
+        "cvar": cvar.getValue(),
+        "eta": eta.X,
+        "offer_df": offer_df,
+        "profit_df": pd.DataFrame({
+            "scenario": list(W),
+            "profit_EUR": profit_values
+        })
+    }
+
+def run_task_4():
+    betas = np.concatenate([
+    np.linspace(0, 1, 6),
+    np.linspace(2, 10, 5),
+    np.array([15, 20])
+])
+
+    results = []
+
+    for scheme in ["one_price", "two_price"]:
+        for beta in betas:
+            res = risk_averse_offering(
+                scenarios,
+                scheme=scheme,
+                alpha=0.90,
+                beta=beta,
+                seed = 42 # Randomly selected set of 200 scenarios
+            )
+
+            results.append({
+                "scheme": scheme,
+                "beta": beta,
+                "expected_profit": res["expected_profit"],
+                "cvar": res["cvar"],
+                "eta": res["eta"]
+            })
+
+    results_df = pd.DataFrame(results)
+
+    print("\nTask 1.4 results:")
+    print(results_df)
+
+    for scheme in ["one_price", "two_price"]:
+        subset = results_df[results_df["scheme"] == scheme]
+        #subset_unique = subset.drop_duplicates(subset=["cvar", "expected_profit"])
+        grouped = subset.groupby(["cvar", "expected_profit"])["beta"].apply(list).reset_index()
+
+        plt.figure()
+        plt.plot(grouped["cvar"], grouped["expected_profit"], marker="o")
+        
+        if scheme == "one_price":
+            for i, row in grouped.iterrows():
+                label = ",".join([f'{b:.2g}' for b in row["beta"]])
+                plt.annotate(
+                    label,
+                    (row["cvar"], row["expected_profit"]),
+                    textcoords="offset points",
+                    xytext=(5,5),
+                    fontsize=8,
+                    color="darkblue"
+                )
+
+        elif scheme == "two_price":
+            for i, row in grouped.iterrows():
+                beta_list = row["beta"]
+                label = ",".join([f'{b:.2g}' for b in beta_list])
+
+                if i < 7: 
+                    pass # show all beta values for the first 7 points
+                elif i == 11:
+                    label = "6, 8, 10, \n 15, 20"
+                else:
+                    label = ""
+
+                plt.annotate(
+                    label,
+                    (row["cvar"], row["expected_profit"]),
+                    textcoords="offset points",
+                    xytext=(5,5),
+                    fontsize=8,
+                    color="darkblue"
+                )
+        plt.xlabel("CVaR [EUR]")
+        plt.ylabel("Expected profit [EUR]")
+        plt.title(f"Expected profit vs CVaR ({scheme})")
+        plt.text(
+            0.02, 0.02,
+            "Annotated numbers = β values",
+            transform=plt.gca().transAxes,
+            fontsize=9,
+            color="darkblue"
+        )
+        plt.grid(True)
+        plt.show()
+
+    return results_df
+
 if __name__ == "__main__":
     print("\nAvailable commands:")
     #print("run_task_1()")
+    #run_task_1()
     #print("run_task_2()")
-    run_task_3()
+    #run_task_2()
+    #run_task_3()
+    results_df = run_task_4()
