@@ -603,118 +603,89 @@ def run_task_4():
     print("\nTask 1.4 results:")
     print(results_df)
 
-    for scheme in ["one_price", "two_price"]:
+        # ------------------------------------------
+    # Combined efficiency frontier plot
+    # ------------------------------------------
+    fig, axes = plt.subplots(
+        2, 1,
+        figsize=(8, 7),
+        sharex=True
+    )
+
+    plot_settings = {
+        "one_price": {
+            "label": "One-price scheme",
+            "color": "green",
+            "marker": "o",
+            "linestyle": "-"
+        },
+        "two_price": {
+            "label": "Two-price scheme",
+            "color": "darkred",
+            "marker": "s",
+            "linestyle": "--"
+        }
+    }
+
+    for ax, scheme in zip(axes, ["one_price", "two_price"]):
         subset = results_df[results_df["scheme"] == scheme]
-        #subset_unique = subset.drop_duplicates(subset=["cvar", "expected_profit"])
-        grouped = subset.groupby(["cvar", "expected_profit"])["beta"].apply(list).reset_index()
 
-        plt.figure()
-        plt.plot(grouped["cvar"], grouped["expected_profit"], marker="o")
-        
-        if scheme == "one_price":
-            for i, row in grouped.iterrows():
-                label = ",".join([f'{b:.2g}' for b in row["beta"]])
-                plt.annotate(
-                    label,
-                    (row["cvar"], row["expected_profit"]),
-                    textcoords="offset points",
-                    xytext=(5,5),
-                    fontsize=8,
-                    color="darkblue"
-                )
+        grouped = (
+            subset
+            .groupby(["cvar", "expected_profit"])["beta"]
+            .apply(list)
+            .reset_index()
+            .sort_values("cvar")
+        )
 
-        elif scheme == "two_price":
-            for i, row in grouped.iterrows():
-                beta_list = row["beta"]
-                label = ",".join([f'{b:.2g}' for b in beta_list])
+        settings = plot_settings[scheme]
 
-                if i < 7: 
-                    pass # show all beta values for the first 7 points
+        ax.plot(
+            grouped["cvar"],
+            grouped["expected_profit"],
+            marker=settings["marker"],
+            linestyle=settings["linestyle"],
+            color=settings["color"],
+            label=settings["label"]
+        )
+
+        for i, row in grouped.iterrows():
+            beta_list = row["beta"]
+            label = ",".join([f"{b:.2g}" for b in beta_list])
+
+            if scheme == "two_price":
+                if i < 7:
+                    pass
                 elif i == 11:
-                    label = "6, 8, 10, \n 15, 20"
+                    label = "6, 8, 10,\n15, 20"
                 else:
                     label = ""
 
-                plt.annotate(
-                    label,
-                    (row["cvar"], row["expected_profit"]),
-                    textcoords="offset points",
-                    xytext=(5,5),
-                    fontsize=8,
-                    color="darkblue"
-                )
-        plt.xlabel("CVaR [EUR]")
-        plt.ylabel("Expected profit [EUR]")
-        plt.title(f"Expected profit vs CVaR ({scheme})")
-        plt.text(
-            0.02, 0.02,
-            "Annotated numbers = β values",
-            transform=plt.gca().transAxes,
-            fontsize=9,
-            color="darkblue"
-        )
-        plt.grid(True)
-        plt.show()
+            ax.annotate(
+                label,
+                (row["cvar"], row["expected_profit"]),
+                textcoords="offset points",
+                xytext=(5, 5),
+                fontsize=8,
+                color=settings["color"]
+            )
 
-    return results_df
+        ax.set_ylabel("Expected profit [EUR]")
+        ax.set_title(settings["label"])
+        ax.grid(True)
+        ax.legend()
 
-def plot_offering_strategies(offer_df_t1, offer_df_t2):
-    plt.figure(figsize=(10, 5))
+    axes[-1].set_xlabel("CVaR [EUR]")
 
-    plt.plot(
-        offer_df_t1["hour"],
-        offer_df_t1["offer_MW"],
-        color="green",
-        linewidth=2,
-        label="One-price scheme"
+    fig.suptitle("Expected Profit vs CVaR: One-Price and Two-Price Schemes")
+    fig.text(
+        0.02, 0.02,
+        "Annotated numbers = β values",
+        fontsize=9,
+        color="darkblue"
     )
 
-    plt.plot(
-        offer_df_t2["hour"],
-        offer_df_t2["offer_MW"],
-        color="darkred",
-        linewidth=2,
-        label="Two-price scheme"
-    )
-
-    plt.xlabel("Hour")
-    plt.ylabel("Day-ahead offer [MW]")
-    plt.title("Optimal day-ahead offering strategy")
-    plt.legend()
-    plt.grid(True)
-    plt.xticks(range(1, 25))
-    plt.show()
-
-def plot_profit_cdf_comparison(profit_df_t1, profit_df_t2):
-    sorted_profits_t1 = np.sort(profit_df_t1["profit_EUR"])
-    cumulative_prob_t1 = np.arange(1, len(sorted_profits_t1) + 1) / len(sorted_profits_t1)
-
-    sorted_profits_t2 = np.sort(profit_df_t2["profit_EUR"])
-    cumulative_prob_t2 = np.arange(1, len(sorted_profits_t2) + 1) / len(sorted_profits_t2)
-
-    plt.figure(figsize=(8, 5))
-
-    plt.plot(
-        sorted_profits_t1,
-        cumulative_prob_t1,
-        color="green",
-        linewidth=2,
-        label="One-price scheme"
-    )
-
-    plt.plot(
-        sorted_profits_t2,
-        cumulative_prob_t2,
-        color="darkred",
-        linewidth=2,
-        label="Two-price scheme"
-    )
-
-    plt.xlabel("Profit [EUR]")
-    plt.ylabel("Cumulative probability")
-    plt.title("Empirical CDF of profit distributions")
-    plt.legend()
-    plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":
@@ -723,8 +694,8 @@ if __name__ == "__main__":
     #run_task_1()
     #print("run_task_2()")
     #run_task_2()
-    run_task_3()
-    #results_df = run_task_4()
+    #run_task_3()
+    results_df = run_task_4()
     #offer_df_t1, expected_profit_t1, profit_df_t1 = run_task_1()
     #offer_df_t2, expected_profit_t2, profit_df_t2 = run_task_2()
 
