@@ -1,4 +1,5 @@
 import math
+from xml.parsers.expat import model
 import numpy as np
 import pandas as pd
 import gurobipy as gp
@@ -54,6 +55,9 @@ def task_1(scenarios):
     model.setObjective(total_profit, GRB.MAXIMIZE)
 
     model.optimize()
+    print("Variables:", model.NumVars)
+    print("Constraints:", model.NumConstrs)
+    print("Solve time:", model.Runtime)
 
     optimal_offer = [offer[t].X for t in T]
     #Expected profit = average across scenarios 
@@ -164,6 +168,9 @@ def task_2(scenarios):
 
     model.setObjective(total_profit, GRB.MAXIMIZE)
     model.optimize()
+    print("Variables:", model.NumVars)
+    print("Constraints:", model.NumConstrs)
+    print("Solve time:", model.Runtime)
 
     optimal_offer = [offer[t].X for t in T]
     expected_profit = model.ObjVal / len(scenarios)
@@ -550,6 +557,9 @@ def risk_averse_offering(scenarios, scheme="two_price", alpha=0.90, beta=0, seed
 
     model.setObjective(expected_profit + beta * cvar, GRB.MAXIMIZE)
     model.optimize()
+    print(f"Variables ({scheme}):", model.NumVars)
+    print(f"Constraints ({scheme}):", model.NumConstrs)
+    print(f"Solve time ({scheme}):", model.Runtime)
 
     offer_df = pd.DataFrame({
         "hour": list(T),
@@ -689,13 +699,13 @@ def run_task_4():
     plt.show()
 
 if __name__ == "__main__":
-    print("\nAvailable commands:")
+    #print("\nAvailable commands:")
     #print("run_task_1()")
     #run_task_1()
     #print("run_task_2()")
-    #run_task_2()
+    run_task_2()
     #run_task_3()
-    results_df = run_task_4()
+    #results_df = run_task_4()
     #offer_df_t1, expected_profit_t1, profit_df_t1 = run_task_1()
     #offer_df_t2, expected_profit_t2, profit_df_t2 = run_task_2()
 
