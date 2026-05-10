@@ -178,10 +178,10 @@ print(task21_df.to_string(index=False, float_format=lambda x: f"{x:.4f}" if x < 
 print("\nTask 2.2")
 print(task22_df.to_string(index=False, float_format=lambda x: f"{x:.4f}" if x < 10 else f"{x:.2f}"))
 
-pd.DataFrame(in_sample).to_csv("task2_in_sample_profiles.csv", index=False)
-pd.DataFrame(out_of_sample).to_csv("task2_out_of_sample_profiles.csv", index=False)
-task21_df.to_csv("task2_1_results.csv", index=False)
-task22_df.to_csv("task2_2_results.csv", index=False)
+pd.DataFrame(in_sample).to_csv("03_results/task2_in_sample_profiles.csv", index=False)
+pd.DataFrame(out_of_sample).to_csv("03_results/task2_out_of_sample_profiles.csv", index=False)
+task21_df.to_csv("03_results/task2_1_results.csv", index=False)
+task22_df.to_csv("03_results/task2_2_results.csv", index=False)
 
 plt.figure(figsize=(9, 5))
 for i in range(8):
@@ -191,7 +191,7 @@ plt.ylabel("Load [kW]")
 plt.title("Sample of in-sample load profiles")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("task2_profiles.png", dpi=300)
+plt.savefig("03_results/task2_profiles.png", dpi=300)
 plt.show()
 
 plt.figure(figsize=(9, 5))
@@ -204,11 +204,8 @@ plt.title("In-sample support and optimal bids")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("task2_bids_hist.png", dpi=300)
+plt.savefig("03_results/task2_bids_hist.png", dpi=300)
 plt.show()
-
-import numpy as np
-import matplotlib.pyplot as plt
 
 # 1. Define the range of reliability thresholds (from 80% to 100%)
 # This corresponds to epsilon (risk tolerance) from 0.20 down to 0.00
@@ -248,5 +245,5 @@ ax2.tick_params(axis='y', labelcolor=color)
 plt.title('Task 2.3: Trade-off between Reliability, Reserve Bid, and Shortfall (ALSO-X)')
 fig.tight_layout()  
 plt.grid(True)
-plt.savefig("task2_3_tradeoff.png", dpi=300)
+plt.savefig("03_results/task2_3_tradeoff.png", dpi=300)
 plt.show()

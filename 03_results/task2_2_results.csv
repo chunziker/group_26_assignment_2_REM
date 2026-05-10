@@ -1,0 +1,3 @@
+method,bid_kW,out_of_sample_reliability,P90_met_out_of_sample,profiles_passing,profiles_failing,avg_max_shortfall_kW,avg_max_shortfall_if_fail_kW,max_shortfall_kW,shortfall_minutes
+ALSO-X benchmark,221.21430050125824,0.925,True,185,15,0.05361148947378709,0.7148198596504945,1.1878165167113934,19
+CVaR,220.48949726158753,0.96,True,192,8,0.013903803473215248,0.3475950868303812,0.4630132770406874,9

@@ -5,7 +5,7 @@ def generate_scenarios():
     np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
     ##### WIND SCENARIOS #####
-    df_wind = pd.read_csv("Wind_Data_DK2_Renewablesninja.csv")
+    df_wind = pd.read_csv("02_data/Wind_Data_DK2_Renewablesninja.csv")
     df_wind["time"] = pd.to_datetime(df_wind["time"])
 
     df_wind = df_wind[
@@ -29,7 +29,7 @@ def generate_scenarios():
     ])
 
     ##### PRICE SCENARIOS #####
-    df_price = pd.read_csv("GUI_ENERGY_PRICES_202312312300-202412312300.csv")
+    df_price = pd.read_csv("02_data/GUI_ENERGY_PRICES_202312312300-202412312300.csv")
 
     df_price["time"] = df_price["MTU (CET/CEST)"].str.split(" - ").str[0]
     df_price["time"] = df_price["time"].str.replace(

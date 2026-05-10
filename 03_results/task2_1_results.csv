@@ -1,0 +1,3 @@
+method,bid_kW,in_sample_reliability,P90_met_in_sample
+ALSO-X benchmark,221.21430050125824,0.9,True
+CVaR,220.48949726158753,0.94,True
